@@ -1,0 +1,72 @@
+name: CI
+
+on:
+  push:
+  pull_request:
+
+permissions:
+  contents: read
+
+concurrency:
+  group: ci-${{ github.ref }}
+  cancel-in-progress: true
+
+jobs:
+  check:
+    name: Lint, typecheck y tests
+    runs-on: ubuntu-latest
+    services:
+      postgres:
+        image: postgres:17-alpine
+        env:
+          POSTGRES_USER: popicert
+          POSTGRES_PASSWORD: popicert
+          POSTGRES_DB: popicert
+        ports:
+          - 5432:5432
+        options: >-
+          --health-cmd "pg_isready -U popicert -d popicert"
+          --health-interval 2s
+          --health-timeout 3s
+          --health-retries 30
+    env:
+      # Base de datos vacía en cada ejecución.
+      DATABASE_URL: postgresql://popicert:popicert@localhost:5432/popicert
+    steps:
+      - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
+        with:
+          persist-credentials: false
+      - uses: actions/setup-node@949feb2413d6458794dcd2491c4babbbce0c15c1 # v7.1.0
+        with:
+          node-version: 22
+          cache: npm
+      - run: npm ci
+      - run: npm run lint
+      - run: npm run typecheck
+      - name: Migraciones contra una base de datos vacía
+        run: npm run db:migrate
+      - run: npm test
+
+  docker:
+    name: Imagen de Docker y arranque con base de datos vacía
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
+        with:
+          persist-credentials: false
+      - name: docker compose up (sin pasos manuales)
+        run: docker compose up -d --build --wait --wait-timeout 180
+      - name: /api/health responde 200 con la base de datos
+        run: |
+          code=$(curl -s -o /dev/null -w '%{http_code}' http://127.0.0.1:3100/api/health)
+          echo "HTTP $code"; test "$code" = 200
+      - name: /api/health responde 503 sin la base de datos
+        run: |
+          docker compose stop db
+          code=$(curl -s -o /dev/null -w '%{http_code}' --max-time 10 http://127.0.0.1:3100/api/health)
+          echo "HTTP $code"; test "$code" = 503
+      - name: Logs
+        if: always()
+        run: docker compose logs --no-color
+      - if: always()
+        run: docker compose down -v

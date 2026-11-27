@@ -1,0 +1,26 @@
+// Esquema de la base de datos de PopiCert.
+// Las migraciones viven en prisma/migrations y se aplican al arrancar el contenedor.
+
+generator client {
+  provider = "prisma-client"
+  output   = "../src/generated/prisma"
+}
+
+datasource db {
+  provider = "postgresql"
+}
+
+/// Registro de auditoría de las acciones del admin: quién (email de Cloudflare Access), qué y cuándo.
+model AuditLog {
+  id         String   @id @default(uuid()) @db.Uuid
+  createdAt  DateTime @default(now()) @map("created_at") @db.Timestamptz(3)
+  actorEmail String   @map("actor_email")
+  action     String
+  targetType String?  @map("target_type")
+  targetId   String?  @map("target_id")
+  details    Json?
+
+  @@index([createdAt])
+  @@index([targetType, targetId])
+  @@map("audit_log")
+}

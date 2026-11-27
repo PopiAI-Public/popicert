@@ -1,0 +1,40 @@
+# Entorno de desarrollo: PopiCert contra una PostgreSQL VACÍA.
+#
+#   docker compose up --build      # app en http://localhost:3100
+#   docker compose up -d db        # solo la base de datos, para `npm run dev`
+#
+# La base de datos vive en memoria (tmpfs): cada vez que se recrea el
+# contenedor empieza vacía, para probar siempre como en una instalación nueva.
+
+services:
+  db:
+    image: postgres:17-alpine
+    environment:
+      POSTGRES_USER: popicert
+      POSTGRES_PASSWORD: popicert
+      POSTGRES_DB: popicert
+    ports:
+      - "127.0.0.1:55432:5432"
+    tmpfs:
+      - /var/lib/postgresql/data
+    healthcheck:
+      test: ["CMD-SHELL", "pg_isready -U popicert -d popicert"]
+      interval: 2s
+      timeout: 3s
+      retries: 30
+
+  app:
+    build: .
+    depends_on:
+      db:
+        condition: service_healthy
+    ports:
+      - "127.0.0.1:3100:3000"
+    environment:
+      DATABASE_URL: postgresql://popicert:popicert@db:5432/popicert
+      PUBLIC_URL: http://localhost:3100
+      ADMIN_HOST: localhost
+    # Opcional: aquí puedes poner POPICERT_SIGNING_KEY (generada con `npm run keygen`).
+    env_file:
+      - path: .env.docker
+        required: false
