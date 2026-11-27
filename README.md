@@ -7,8 +7,8 @@ Cada certificado es una credencial verificable W3C 2.0 (`OpenBadgeCredential`)
 firmada por el emisor `did:web` del dominio público. Cualquiera puede comprobarla
 en la propia web o con un verificador externo de Open Badges 3.0.
 
-> **Estado:** en desarrollo. Ya están la base del proyecto y el núcleo de firma y
-> verificación. Faltan la revocación, el panel de administración, la página
+> **Estado:** en desarrollo. Ya están la base del proyecto, el núcleo de firma y
+> verificación y la revocación. Faltan el panel de administración, la página
 > pública y las plantillas de diploma.
 
 ## Qué hace (y qué hará)
@@ -20,7 +20,10 @@ en la propia web o con un verificador externo de Open Badges 3.0.
   - Contextos JSON-LD empaquetados: no se descarga nada al firmar ni al verificar.
   - Nombre del asistente en claro y email solo con hash y sal.
   - Rotación de claves sin invalidar lo ya emitido ([docs/rotacion-de-claves.md](docs/rotacion-de-claves.md)).
-- Revocación con Bitstring Status List.
+- **Revocación con W3C Bitstring Status List** ✅
+  - Cada credencial lleva un `BitstringStatusListEntry` con un índice aleatorio.
+  - Lista firmada y pública en `/status/<n>`, de 131.072 entradas y con caché de 5 minutos.
+  - Revocar guarda el motivo y la fecha y vuelve a firmar la lista. La credencial emitida no se toca.
 - Panel de administración tras Cloudflare Access: formaciones, emisión individual y por CSV, revocación.
 - Página pública del certificado con QR, PDF, JSON firmado y «Añadir a LinkedIn».
 - Plantillas de diploma en SVG con campos personalizables.

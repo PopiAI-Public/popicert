@@ -6,6 +6,8 @@ import { createKeyRing, didDocumentForKeyRing, type KeyRing } from "./keys";
 
 /** Todo lo que hace falta para firmar y verificar como PopiCert. */
 export interface IssuerContext {
+  /** URL pública sin barra final, por ejemplo https://certificados.popiai.es */
+  publicUrl: string;
   did: string;
   profile: IssuerProfile;
   keyRing: KeyRing;
@@ -34,6 +36,7 @@ export async function createIssuerContext(options: {
   });
   const didDocument = didDocumentForKeyRing(keyRing);
   return {
+    publicUrl: options.publicUrl.replace(/\/+$/, ""),
     did,
     profile: { id: did, ...options.profile },
     keyRing,

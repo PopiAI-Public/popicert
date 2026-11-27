@@ -45,6 +45,34 @@ declare module "@digitalbazaar/ed25519-multikey" {
   export function from(key: Record<string, unknown>): Promise<Ed25519KeyPair>;
 }
 
+declare module "@digitalbazaar/vc-bitstring-status-list" {
+  export class BitstringStatusList {
+    constructor(options: { length?: number; buffer?: Uint8Array });
+    length: number;
+    setStatus(index: number, status: boolean): void;
+    getStatus(index: number): boolean;
+    encode(): Promise<string>;
+  }
+  export function createList(options: { length: number }): Promise<BitstringStatusList>;
+  export function decodeList(options: { encodedList: string }): Promise<BitstringStatusList>;
+  export function createCredential(options: {
+    id: string;
+    list: BitstringStatusList;
+    statusPurpose: string;
+  }): Promise<Record<string, unknown> & { credentialSubject: Record<string, unknown> }>;
+  export function checkStatus(options: {
+    credential: Record<string, unknown>;
+    documentLoader: unknown;
+    suite: unknown;
+    verifyBitstringStatusListCredential?: boolean;
+    verifyMatchingIssuers?: boolean;
+  }): Promise<{
+    verified: boolean;
+    error?: Error;
+    results?: Array<{ verified: boolean; status: boolean; credentialStatus: { statusPurpose: string } }>;
+  }>;
+}
+
 declare module "@digitalbazaar/credentials-context" {
   export const contexts: Map<string, unknown>;
 }
