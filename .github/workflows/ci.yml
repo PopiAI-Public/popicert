@@ -33,8 +33,10 @@ jobs:
       # Base de datos vacía en cada ejecución.
       DATABASE_URL: postgresql://popicert:popicert@localhost:5432/popicert
     steps:
-      - uses: actions/checkout@v7
-      - uses: actions/setup-node@v7
+      - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
+        with:
+          persist-credentials: false
+      - uses: actions/setup-node@949feb2413d6458794dcd2491c4babbbce0c15c1 # v7.1.0
         with:
           node-version: 22
           cache: npm
@@ -49,7 +51,9 @@ jobs:
     name: Imagen de Docker y arranque con base de datos vacía
     runs-on: ubuntu-latest
     steps:
-      - uses: actions/checkout@v7
+      - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
+        with:
+          persist-credentials: false
       - name: docker compose up (sin pasos manuales)
         run: docker compose up -d --build --wait --wait-timeout 180
       - name: /api/health responde 200 con la base de datos
