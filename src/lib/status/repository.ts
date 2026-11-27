@@ -107,49 +107,57 @@ export async function revokeStatusEntry(
   issuer: IssuerContext,
   options: { entryId: string; reason: string; now?: Date },
 ): Promise<RevocationResult> {
+  return prisma.$transaction((tx) => revokeStatusEntryInTransaction(tx, issuer, options), { timeout: 15_000 });
+}
+
+/**
+ * Lo mismo que `revokeStatusEntry`, dentro de una transacción que ya está
+ * abierta: la revocación de un certificado (KAN-11) actualiza también su fila
+ * en la misma transacción.
+ */
+export async function revokeStatusEntryInTransaction(
+  tx: Prisma.TransactionClient,
+  issuer: IssuerContext,
+  options: { entryId: string; reason: string; now?: Date },
+): Promise<RevocationResult> {
   const reason = options.reason.trim();
   if (!reason) throw new Error("El motivo de la revocación es obligatorio.");
 
-  return prisma.$transaction(
-    async (tx) => {
-      const entry = await tx.statusEntry.findUnique({ where: { id: options.entryId } });
-      if (!entry) throw new StatusEntryNotFoundError(options.entryId);
+  const entry = await tx.statusEntry.findUnique({ where: { id: options.entryId } });
+  if (!entry) throw new StatusEntryNotFoundError(options.entryId);
 
-      await tx.$queryRaw`SELECT id FROM status_list WHERE id = ${entry.listId} FOR UPDATE`;
+  await tx.$queryRaw`SELECT id FROM status_list WHERE id = ${entry.listId} FOR UPDATE`;
 
-      // Releída con la lista ya bloqueada, por si otra transacción la acaba de revocar.
-      const current = await tx.statusEntry.findUniqueOrThrow({ where: { id: entry.id } });
-      if (current.revokedAt) {
-        return { revokedAt: current.revokedAt, reason: current.revocationReason ?? "", alreadyRevoked: true };
-      }
+  // Releída con la lista ya bloqueada, por si otra transacción la acaba de revocar.
+  const current = await tx.statusEntry.findUniqueOrThrow({ where: { id: entry.id } });
+  if (current.revokedAt) {
+    return { revokedAt: current.revokedAt, reason: current.revocationReason ?? "", alreadyRevoked: true };
+  }
 
-      const revokedAt = options.now ?? new Date();
-      await tx.statusEntry.update({
-        where: { id: entry.id },
-        data: { revokedAt, revocationReason: reason },
-      });
+  const revokedAt = options.now ?? new Date();
+  await tx.statusEntry.update({
+    where: { id: entry.id },
+    data: { revokedAt, revocationReason: reason },
+  });
 
-      const revoked = await tx.statusEntry.findMany({
-        where: { listId: entry.listId, revokedAt: { not: null } },
-        select: { index: true },
-      });
-      const list = await tx.statusList.findUniqueOrThrow({ where: { id: entry.listId }, select: { size: true } });
-      const credential = await buildSignedStatusList({
-        issuer,
-        listId: entry.listId,
-        size: list.size,
-        revokedIndices: revoked.map((r) => r.index),
-        date: revokedAt,
-      });
-      await tx.statusList.update({
-        where: { id: entry.listId },
-        data: { credential: credential as Prisma.InputJsonValue, version: { increment: 1 } },
-      });
+  const revoked = await tx.statusEntry.findMany({
+    where: { listId: entry.listId, revokedAt: { not: null } },
+    select: { index: true },
+  });
+  const list = await tx.statusList.findUniqueOrThrow({ where: { id: entry.listId }, select: { size: true } });
+  const signedList = await buildSignedStatusList({
+    issuer,
+    listId: entry.listId,
+    size: list.size,
+    revokedIndices: revoked.map((r) => r.index),
+    date: revokedAt,
+  });
+  await tx.statusList.update({
+    where: { id: entry.listId },
+    data: { credential: signedList as Prisma.InputJsonValue, version: { increment: 1 } },
+  });
 
-      return { revokedAt, reason, alreadyRevoked: false };
-    },
-    { timeout: 15_000 },
-  );
+  return { revokedAt, reason, alreadyRevoked: false };
 }
 
 /** La `BitstringStatusListCredential` publicada de la lista `listId`, o `null`. */

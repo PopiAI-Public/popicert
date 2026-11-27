@@ -31,14 +31,15 @@ model StatusList {
 
 /// Una posición de una lista de estado, asignada a una credencial al emitirla.
 model StatusEntry {
-  id               String     @id @default(uuid()) @db.Uuid
-  listId           Int        @map("list_id")
+  id               String      @id @default(uuid()) @db.Uuid
+  listId           Int         @map("list_id")
   /// Posición en la lista. Aleatoria: no sigue el orden de emisión.
   index            Int
-  createdAt        DateTime   @default(now()) @map("created_at") @db.Timestamptz(3)
-  revokedAt        DateTime?  @map("revoked_at") @db.Timestamptz(3)
-  revocationReason String?    @map("revocation_reason")
-  list             StatusList @relation(fields: [listId], references: [id])
+  createdAt        DateTime    @default(now()) @map("created_at") @db.Timestamptz(3)
+  revokedAt        DateTime?   @map("revoked_at") @db.Timestamptz(3)
+  revocationReason String?     @map("revocation_reason")
+  list             StatusList  @relation(fields: [listId], references: [id])
+  credential       Credential?
 
   @@unique([listId, index])
   @@index([listId, revokedAt])
@@ -74,25 +75,27 @@ model Template {
 }
 
 model TemplateVersion {
-  id          String         @id @default(uuid()) @db.Uuid
-  templateId  String         @map("template_id") @db.Uuid
+  id           String         @id @default(uuid()) @db.Uuid
+  templateId   String         @map("template_id") @db.Uuid
   /// 1, 2, 3… dentro de la plantilla.
-  version     Int
+  version      Int
   /// SVG ya saneado.
-  svg         String
-  svgSha256   String         @map("svg_sha256")
+  svg          String
+  svgSha256    String         @map("svg_sha256")
   /// "landscape" o "portrait".
-  orientation String
+  orientation  String
   /// Configuración de cada campo: [{ key, label, scope, required, public }].
-  fields      Json
+  fields       Json
   /// Qué se quitó al sanear y avisos al subirla: { removed: string[], warnings: string[] }.
-  report      Json
-  createdAt   DateTime       @default(now()) @map("created_at") @db.Timestamptz(3)
-  createdBy   String         @map("created_by")
+  report       Json
+  createdAt    DateTime       @default(now()) @map("created_at") @db.Timestamptz(3)
+  createdBy    String         @map("created_by")
   /// Se fija al emitir el primer certificado con esta versión. Desde entonces no cambia nada.
-  lockedAt    DateTime?      @map("locked_at") @db.Timestamptz(3)
-  template    Template       @relation(fields: [templateId], references: [id])
-  fonts       TemplateFont[]
+  lockedAt     DateTime?      @map("locked_at") @db.Timestamptz(3)
+  template     Template       @relation(fields: [templateId], references: [id])
+  fonts        TemplateFont[]
+  achievements Achievement[]
+  issued       Credential[]
 
   @@unique([templateId, version])
   @@map("template_version")
@@ -112,4 +115,84 @@ model TemplateFont {
 
   @@unique([versionId, family, bold, italic])
   @@map("template_font")
+}
+
+/// Imagen de la insignia de una formación (PNG o JPEG). Se identifica por su
+/// sha256, que va en la URL pública (/insignias/<sha256>.png): una imagen no
+/// cambia nunca, así que la que enlaza un certificado emitido sigue siendo la misma.
+model BadgeImage {
+  sha256       String        @id
+  mimeType     String        @map("mime_type")
+  data         Bytes
+  createdAt    DateTime      @default(now()) @map("created_at") @db.Timestamptz(3)
+  achievements Achievement[]
+
+  @@map("badge_image")
+}
+
+/// Una formación: el `Achievement` de Open Badges. Lo que se cambie aquí solo
+/// afecta a los certificados que se emitan después: los emitidos llevan su copia firmada.
+model Achievement {
+  id                String          @id @default(uuid()) @db.Uuid
+  name              String
+  description       String
+  /// Qué hay que hacer para obtenerlo (`criteria.narrative`).
+  criteria          String
+  hours             Int?
+  badgeSha256       String?         @map("badge_sha256")
+  templateVersionId String          @map("template_version_id") @db.Uuid
+  /// Valores de los campos de formación de la plantilla: { fecha: "…", lugar: "…" }.
+  trainingValues    Json            @map("training_values")
+  createdAt         DateTime        @default(now()) @map("created_at") @db.Timestamptz(3)
+  createdBy         String          @map("created_by")
+  updatedAt         DateTime        @updatedAt @map("updated_at") @db.Timestamptz(3)
+  /// Una formación con certificados no se borra: se archiva y deja de admitir emisiones.
+  archivedAt        DateTime?       @map("archived_at") @db.Timestamptz(3)
+  badge             BadgeImage?     @relation(fields: [badgeSha256], references: [sha256])
+  templateVersion   TemplateVersion @relation(fields: [templateVersionId], references: [id])
+  issued            Credential[]
+
+  @@index([createdAt])
+  @@map("achievement")
+}
+
+/// Un certificado emitido. Guarda la credencial firmada tal cual se emitió y los
+/// datos con los que se rellenó la plantilla, para que el PDF salga siempre igual.
+///
+/// La migración añade un índice único parcial que no se puede expresar aquí:
+/// `(achievement_id, dedupe_key) WHERE revoked_at IS NULL`. Es lo que hace que
+/// repetir un CSV no emita dos veces, y deja volver a emitir tras revocar.
+model Credential {
+  id                String          @id @default(uuid()) @db.Uuid
+  /// Código público, el de /c/<código>.
+  code              String          @unique
+  achievementId     String          @map("achievement_id") @db.Uuid
+  templateVersionId String          @map("template_version_id") @db.Uuid
+  statusEntryId     String          @unique @map("status_entry_id") @db.Uuid
+  recipientName     String          @map("recipient_name")
+  /// Email en claro, si se recogió. En la credencial firmada solo va con hash.
+  recipientEmail    String?         @map("recipient_email")
+  /// Identifica al asistente dentro de la formación: email, DNI o nombre, normalizados.
+  dedupeKey         String          @map("dedupe_key")
+  /// Valores de los campos del asistente (también los privados, como el DNI: solo van al PDF).
+  attendeeValues    Json            @map("attendee_values")
+  /// Copia de los valores de formación en el momento de emitir.
+  trainingValues    Json            @map("training_values")
+  /// La `OpenBadgeCredential` firmada.
+  credential        Json
+  issuedAt          DateTime        @map("issued_at") @db.Timestamptz(3)
+  issuedBy          String          @map("issued_by")
+  /// Copia de la revocación de la lista de estado, para buscar y para el índice de duplicados.
+  revokedAt         DateTime?       @map("revoked_at") @db.Timestamptz(3)
+  revocationReason  String?         @map("revocation_reason")
+  /// Oculto a petición del asistente (RGPD): la página pública no enseña sus datos.
+  hiddenAt          DateTime?       @map("hidden_at") @db.Timestamptz(3)
+  hiddenReason      String?         @map("hidden_reason")
+  achievement       Achievement     @relation(fields: [achievementId], references: [id], onDelete: Restrict)
+  templateVersion   TemplateVersion @relation(fields: [templateVersionId], references: [id])
+  statusEntry       StatusEntry     @relation(fields: [statusEntryId], references: [id])
+
+  @@index([achievementId, issuedAt])
+  @@index([recipientName])
+  @@map("credential")
 }

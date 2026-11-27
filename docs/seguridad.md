@@ -87,6 +87,28 @@ leer ficheros del disco. Por eso:
 - Una versión usada en certificados no se puede modificar ni borrar: lo impiden
   triggers de PostgreSQL, no solo la aplicación.
 
+### 8. Lo emitido no cambia
+
+- Un certificado guarda la credencial firmada y los datos con los que se genera
+  su PDF. Un trigger de PostgreSQL impide modificarlos, y deshacer una
+  revocación. Solo se puede revocar (una vez) y ocultar o volver a mostrar.
+- Una formación con certificados no se puede borrar (clave ajena `RESTRICT`).
+- Los campos privados de la plantilla, como el DNI, solo se guardan para el
+  PDF: nunca entran en la credencial firmada. El email va en ella con hash y sal.
+- Las imágenes de las insignias se publican por su sha256: la que enlaza una
+  credencial emitida no se puede sustituir. Solo se aceptan PNG y JPEG,
+  comprobados por su contenido.
+- Las exportaciones a CSV neutralizan las fórmulas (`=`, `+`, `-`, `@`) para
+  que una celda no se ejecute al abrirla en Excel.
+- Cada acción del admin (crear, editar, archivar o borrar formaciones, emitir,
+  revocar, ocultar) queda en `audit_log` en la misma transacción, con el email
+  del JWT de Access. Se consulta en `/admin/auditoria`.
+
+`tests/issuance-api.integration.test.ts` llama a **todos** los handlers del
+admin de formaciones y certificados sin JWT, con un JWT caducado, con otra
+audiencia y con un email no permitido, y comprueba que todos dan 403 y que no
+se escribe nada.
+
 ## Desarrollo en local
 
 Con `next dev`, `DEV_ADMIN_EMAIL` permite entrar en el admin sin Cloudflare
@@ -97,8 +119,7 @@ comprueba.
 ## Pendiente
 
 - [ ] Revisión de seguridad del repo antes de la primera emisión real (KAN-15).
-- [ ] Ocultar un certificado a petición del asistente (KAN-11 y KAN-12).
-- [ ] Que los campos privados de la plantilla, como el DNI, no salgan nunca en la
-      credencial ni en la página (KAN-11 y KAN-12). La plantilla ya marca qué
-      campos son públicos (KAN-13).
+- [ ] Que la página pública respete la ocultación y no enseñe los campos
+      privados de la plantilla (KAN-12). En la credencial ya no entran (KAN-11).
+- [ ] Límite de peticiones en la búsqueda pública, cuando exista (KAN-12).
 - [ ] Texto de privacidad revisado: borrador en `docs/privacidad.md`.

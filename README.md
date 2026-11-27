@@ -8,8 +8,8 @@ firmada por el emisor `did:web` del dominio público. Cualquiera puede comprobar
 en la propia web o con un verificador externo de Open Badges 3.0.
 
 > **Estado:** en desarrollo. Ya están la base del proyecto, el núcleo de firma y
-> verificación, la revocación y las plantillas de diploma. Faltan la emisión
-> desde el panel de administración y la página pública.
+> verificación, la revocación, las plantillas de diploma y el panel de
+> administración con la emisión. Falta la página pública del certificado.
 
 ## Qué hace (y qué hará)
 
@@ -29,7 +29,16 @@ en la propia web o con un verificador externo de Open Badges 3.0.
   - Al subirlo se sanea, se detectan los campos y se configura cada uno (de la formación o del asistente, obligatorio, público).
   - PDF vectorial en el servidor, sin navegador, con las fuentes incrustadas y el QR de verificación.
   - Versionado: una versión usada en certificados no cambia nunca (triggers en PostgreSQL).
-- Panel de administración tras Cloudflare Access: formaciones, emisión individual y por CSV, revocación.
+- **Panel de administración** tras Cloudflare Access ✅
+  - Formaciones (el `Achievement`): nombre, descripción, criterios, horas, insignia y plantilla de diploma.
+    Con certificados no se borran, se archivan.
+  - Emisión individual y desde CSV (`,` o `;`, UTF-8 o Windows-1252), con vista previa fila a fila.
+  - Idempotente: un asistente (DNI o nombre normalizado) tiene como mucho un certificado vigente
+    por formación, aunque se repita el CSV o lleguen dos emisiones a la vez (índice único parcial).
+  - Sin emails todavía (KAN-14): enlaces para copiar y exportación a CSV con nombre, enlace y código.
+  - Búsqueda por nombre o código, revocación con motivo, ocultación a petición del asistente (RGPD)
+    y PDF del certificado con la credencial firmada adjunta.
+  - Registro de auditoría de cada acción, con el email de Access.
 - Página pública del certificado con QR, PDF, JSON firmado y «Añadir a LinkedIn».
 
 Sin cuentas de usuario ni registro: solo se puede emitir desde el panel protegido.

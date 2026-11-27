@@ -50,6 +50,16 @@ export function fillTemplate(input: FillInput): FilledTemplate {
   return fill(input, new FontSet(input.fonts));
 }
 
+/**
+ * `fillTemplate` para muchas filas con las mismas fuentes: las lee una sola vez.
+ * Lo usa la emisión por CSV para validar cada fila (campos, longitud, caracteres
+ * que faltan en las fuentes) antes de emitir nada.
+ */
+export function createTemplateFiller(fonts: readonly TemplateFontFile[]): (input: Omit<FillInput, "fonts">) => FilledTemplate {
+  const set = new FontSet(fonts);
+  return (input) => fill({ ...input, fonts }, set);
+}
+
 function fill(input: FillInput, fonts: FontSet): FilledTemplate {
   const { document, orientation } = sanitizeSvg(input.svg);
   const values = resolveFieldValues(input.fields, input.values, { codigo: input.code, url: input.url });
