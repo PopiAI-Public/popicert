@@ -29,6 +29,8 @@ en la propia web o con un verificador externo de Open Badges 3.0.
 - Plantillas de diploma en SVG con campos personalizables.
 
 Sin cuentas de usuario ni registro: solo se puede emitir desde el panel protegido.
+El admin vive en otro host, tras Cloudflare Access, y la app valida el token de
+Access en cada petición. Detalles en [docs/seguridad.md](docs/seguridad.md).
 
 ## Stack
 
@@ -96,7 +98,8 @@ El contenedor:
 | `POPICERT_SIGNING_KEY` | **Secreto.** Semilla de la clave de firma activa. |
 | `POPICERT_RETIRED_PUBLIC_KEYS` | Claves públicas retiradas, separadas por comas. |
 | `ISSUER_NAME`, `ISSUER_URL`, `ISSUER_EMAIL` | Perfil del emisor. |
-| `CF_ACCESS_TEAM_DOMAIN`, `CF_ACCESS_AUD` | Validación del token de Cloudflare Access. |
+| `CF_ACCESS_TEAM_DOMAIN`, `CF_ACCESS_AUD` | Validación del token de Cloudflare Access. Sin ellas, nadie entra en el admin. |
+| `ADMIN_EMAILS` | Emails que pueden usar el admin, separados por comas. |
 
 > **`PUBLIC_URL` no se puede cambiar** una vez emitidos certificados: va grabada
 > en cada credencial y en cada QR.

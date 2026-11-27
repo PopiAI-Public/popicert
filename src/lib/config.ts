@@ -30,8 +30,30 @@ const schema = z.object({
   ISSUER_URL: z.url().default("https://popiai.es"),
   ISSUER_EMAIL: z.email().default("info@popiai.es"),
 
+  /** Equipo de Cloudflare Access: `popiai` o `popiai.cloudflareaccess.com`. */
   CF_ACCESS_TEAM_DOMAIN: z.string().min(1).optional(),
+  /** Audiencia (AUD) de la aplicación de Access que protege el admin. */
   CF_ACCESS_AUD: z.string().min(1).optional(),
+  /** Emails que pueden usar el admin, separados por comas. */
+  ADMIN_EMAILS: z
+    .string()
+    .default("info@popiai.es")
+    .transform((value) =>
+      value
+        .split(",")
+        .map((email) => email.trim().toLowerCase())
+        .filter(Boolean),
+    ),
+  /**
+   * Solo en `next dev`: entra en el admin como este email sin Cloudflare
+   * Access. Se ignora en cualquier otro entorno.
+   */
+  DEV_ADMIN_EMAIL: z.string().optional(),
+}).superRefine((config, ctx) => {
+  // Si el admin compartiera host con la web pública, quedaría expuesto en ella.
+  if (config.ADMIN_HOST && config.ADMIN_HOST.trim().toLowerCase() === new URL(config.PUBLIC_URL).host.toLowerCase()) {
+    ctx.addIssue({ code: "custom", path: ["ADMIN_HOST"], message: "no puede ser el mismo host que PUBLIC_URL" });
+  }
 });
 
 export type Config = z.infer<typeof schema>;
