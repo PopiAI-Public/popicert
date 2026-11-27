@@ -40,7 +40,7 @@ export interface CredentialInput {
   validFrom: Date;
   validUntil?: Date;
   /** Entrada de la lista de estado de revocación (KAN-10). */
-  credentialStatus?: Record<string, unknown>;
+  credentialStatus?: object;
 }
 
 export type OpenBadgeCredential = Record<string, unknown> & {

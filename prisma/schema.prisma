@@ -10,6 +10,41 @@ datasource db {
   provider = "postgresql"
 }
 
+/// Lista de estado de revocación (W3C Bitstring Status List), publicada en /status/<id>.
+/// Guarda la credencial `BitstringStatusListCredential` ya firmada, que se vuelve a
+/// firmar en cada revocación.
+model StatusList {
+  /// Número de la lista: forma parte de la URL pública, así que no cambia nunca.
+  id         Int           @id
+  purpose    String        @default("revocation")
+  /// Número de entradas (bits). Como mínimo 131.072, como pide la especificación.
+  size       Int
+  credential Json
+  /// Se incrementa cada vez que se vuelve a firmar la lista.
+  version    Int           @default(1)
+  createdAt  DateTime      @default(now()) @map("created_at") @db.Timestamptz(3)
+  updatedAt  DateTime      @updatedAt @map("updated_at") @db.Timestamptz(3)
+  entries    StatusEntry[]
+
+  @@map("status_list")
+}
+
+/// Una posición de una lista de estado, asignada a una credencial al emitirla.
+model StatusEntry {
+  id               String     @id @default(uuid()) @db.Uuid
+  listId           Int        @map("list_id")
+  /// Posición en la lista. Aleatoria: no sigue el orden de emisión.
+  index            Int
+  createdAt        DateTime   @default(now()) @map("created_at") @db.Timestamptz(3)
+  revokedAt        DateTime?  @map("revoked_at") @db.Timestamptz(3)
+  revocationReason String?    @map("revocation_reason")
+  list             StatusList @relation(fields: [listId], references: [id])
+
+  @@unique([listId, index])
+  @@index([listId, revokedAt])
+  @@map("status_entry")
+}
+
 /// Registro de auditoría de las acciones del admin: quién (email de Cloudflare Access), qué y cuándo.
 model AuditLog {
   id         String   @id @default(uuid()) @db.Uuid
