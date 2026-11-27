@@ -10,7 +10,22 @@ updates:
     schedule:
       interval: weekly
     open-pull-requests-limit: 5
+    ignore:
+      # Vitest >= 4.1 rompe `npm ci` con npm 10 (el de Node 22):
+      # "Cannot read properties of null (reading 'edgesOut')".
+      - dependency-name: vitest
+        versions: [">=4.1.0"]
+      # Los plugins de eslint-config-next aún no admiten ESLint 10.
+      - dependency-name: eslint
+        update-types: ["version-update:semver-major"]
+      # typescript-eslint pide TypeScript < 6.1.
+      - dependency-name: typescript
+        versions: [">=6.1.0"]
   - package-ecosystem: docker
     directory: /
     schedule:
       interval: weekly
+    ignore:
+      # Node 22 es la versión LTS con la que se desarrolla y se prueba.
+      - dependency-name: node
+        update-types: ["version-update:semver-major"]
