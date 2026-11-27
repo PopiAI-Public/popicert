@@ -65,6 +65,28 @@ a comprobar host y token. `tests/routes-structure.test.ts` obliga a que:
   a la base de datos no se puede añadir una clave al documento DID.
 - Rotación: `docs/rotacion-de-claves.md`.
 
+### 7. Las plantillas son contenido no fiable
+
+Un SVG puede llevar scripts, cargar recursos de fuera o, en el generador de PDF,
+leer ficheros del disco. Por eso:
+
+- Al subirlo se sanea con una lista de lo permitido (`src/lib/templates/sanitize.ts`):
+  fuera `<script>`, atributos `on…`, `foreignObject`, animaciones, enlaces,
+  `href` que no sean a `#id` del propio SVG o imágenes PNG/JPEG incrustadas, y
+  CSS con `@import`, `@font-face`, `url()` externas o escapes. Un SVG con
+  `DOCTYPE` o entidades (XXE, «bomba de mil millones de risas») se rechaza.
+- Se vuelve a sanear cada vez que se genera un PDF, por si alguien tocara la
+  base de datos.
+- El generador de PDF no puede abrir ficheros ni URLs: las imágenes solo se
+  aceptan incrustadas y las fuentes solo las subidas o las estándar del PDF.
+- Los datos (nombres, etc.) entran en el árbol XML como texto, nunca pegados en
+  el SVG: un nombre con `<script>` sale escrito tal cual en el diploma.
+- La vista previa SVG se sirve con `Content-Security-Policy: default-src 'none';
+  sandbox`, por si alguien la abre directamente.
+- Límites de tamaño: 10 MB por subida, 5 MB el SVG, 12 fuentes.
+- Una versión usada en certificados no se puede modificar ni borrar: lo impiden
+  triggers de PostgreSQL, no solo la aplicación.
+
 ## Desarrollo en local
 
 Con `next dev`, `DEV_ADMIN_EMAIL` permite entrar en el admin sin Cloudflare
@@ -77,5 +99,6 @@ comprueba.
 - [ ] Revisión de seguridad del repo antes de la primera emisión real (KAN-15).
 - [ ] Ocultar un certificado a petición del asistente (KAN-11 y KAN-12).
 - [ ] Que los campos privados de la plantilla, como el DNI, no salgan nunca en la
-      credencial ni en la página (KAN-13 y KAN-12).
+      credencial ni en la página (KAN-11 y KAN-12). La plantilla ya marca qué
+      campos son públicos (KAN-13).
 - [ ] Texto de privacidad revisado: borrador en `docs/privacidad.md`.

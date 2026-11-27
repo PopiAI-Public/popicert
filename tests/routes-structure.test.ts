@@ -34,7 +34,7 @@ describe("estructura de rutas", () => {
       const source = readFileSync(file, "utf8");
       const exported = [...source.matchAll(/export\s+(?:async\s+)?(?:function|const)\s+(GET|POST|PUT|PATCH|DELETE)\b(.*)/g)];
       for (const [, method, rest] of exported) {
-        expect(rest, `${rel(file)} ${method}`).toMatch(/=\s*adminHandler\(/);
+        expect(rest, `${rel(file)} ${method}`).toMatch(/=\s*adminHandler(<[\w\s,]+>)?\(/);
       }
     }
   });

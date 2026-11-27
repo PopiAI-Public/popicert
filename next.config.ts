@@ -45,6 +45,10 @@ const nextConfig: NextConfig = {
     "jsonld",
     "jsonld-signatures",
     "pg",
+    // PDFKit lee del disco los datos de las fuentes estándar: sin empaquetar.
+    "pdfkit",
+    "svg-to-pdfkit",
+    "fontkit",
   ],
   async headers() {
     return [{ source: "/:path*", headers: securityHeaders }];

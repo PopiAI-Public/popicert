@@ -1,0 +1,44 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<!--
+  Plantilla de ejemplo de PopiCert: A4 horizontal, medidas en milímetros.
+  Fuente: EB Garamond (OFL), en ./fuentes. Sube los .woff junto a este SVG.
+  Guía completa: docs/plantillas.md
+-->
+<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 297 210" width="297mm" height="210mm">
+  <defs>
+    <linearGradient id="oro" x1="0" y1="0" x2="1" y2="0">
+      <stop offset="0" stop-color="#b08d3c"/>
+      <stop offset="0.5" stop-color="#d9bd6a"/>
+      <stop offset="1" stop-color="#b08d3c"/>
+    </linearGradient>
+  </defs>
+
+  <!-- Fondo y marco -->
+  <rect x="0" y="0" width="297" height="210" fill="#fbf8f1"/>
+  <rect x="9" y="9" width="279" height="192" fill="none" stroke="#1f3b4d" stroke-width="1.2"/>
+  <rect x="12" y="12" width="273" height="186" fill="none" stroke="url(#oro)" stroke-width="0.5"/>
+
+  <!-- Cabecera -->
+  <text x="148.5" y="34" font-family="EB Garamond" font-size="5" letter-spacing="1.6" fill="#1f3b4d" text-anchor="middle">POPIAI</text>
+  <text x="148.5" y="52" font-family="EB Garamond" font-size="11" font-weight="bold" fill="#1f3b4d" text-anchor="middle">Certificado de aprovechamiento</text>
+  <rect x="128.5" y="59" width="40" height="0.6" fill="url(#oro)"/>
+
+  <!-- Asistente -->
+  <text x="148.5" y="74" font-family="EB Garamond" font-size="5" fill="#4a4a4a" text-anchor="middle">Se certifica que</text>
+  <text x="148.5" y="92" font-family="EB Garamond" font-size="14" font-weight="bold" fill="#1f3b4d" text-anchor="middle" data-max-width="230">{{nombre}}</text>
+
+  <!-- Formación -->
+  <text x="148.5" y="108" font-family="EB Garamond" font-size="5" fill="#4a4a4a" text-anchor="middle">ha completado con aprovechamiento la formación</text>
+  <text x="148.5" y="122" font-family="EB Garamond" font-size="9" font-style="italic" fill="#1f3b4d" text-anchor="middle" data-max-width="230">{{formacion}}</text>
+  <text x="148.5" y="136" font-family="EB Garamond" font-size="4.6" fill="#4a4a4a" text-anchor="middle" data-max-width="240">con una duración de {{horas}} horas, en {{lugar}}, el {{fecha}}.</text>
+
+  <!-- QR y código: id="qr" marca dónde va el QR y de qué tamaño -->
+  <rect id="qr" x="24" y="150" width="34" height="34" fill="#e0e0e0"/>
+  <text x="63" y="170" font-family="EB Garamond" font-size="3.4" fill="#4a4a4a">Código {{codigo}}</text>
+  <text x="63" y="176" font-family="EB Garamond" font-size="3" fill="#4a4a4a" data-max-width="90">Verifica este certificado en {{url}}</text>
+
+  <!-- Firma -->
+  <rect x="200" y="171" width="70" height="0.3" fill="#1f3b4d"/>
+  <text x="235" y="178" font-family="EB Garamond" font-size="4.4" fill="#1f3b4d" text-anchor="middle" data-max-width="70">{{ponente}}</text>
+  <text x="235" y="183" font-family="EB Garamond" font-size="3.2" font-style="italic" fill="#4a4a4a" text-anchor="middle">Ponente</text>
+</svg>
