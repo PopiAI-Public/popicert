@@ -8,8 +8,8 @@ firmada por el emisor `did:web` del dominio público. Cualquiera puede comprobar
 en la propia web o con un verificador externo de Open Badges 3.0.
 
 > **Estado:** en desarrollo. Ya están la base del proyecto, el núcleo de firma y
-> verificación y la revocación. Faltan el panel de administración, la página
-> pública y las plantillas de diploma.
+> verificación, la revocación y las plantillas de diploma. Faltan la emisión
+> desde el panel de administración y la página pública.
 
 ## Qué hace (y qué hará)
 
@@ -24,9 +24,13 @@ en la propia web o con un verificador externo de Open Badges 3.0.
   - Cada credencial lleva un `BitstringStatusListEntry` con un índice aleatorio.
   - Lista firmada y pública en `/status/<n>`, de 131.072 entradas y con caché de 5 minutos.
   - Revocar guarda el motivo y la fecha y vuelve a firmar la lista. La credencial emitida no se toca.
+- **Plantillas de diploma** ✅ ([docs/plantillas.md](docs/plantillas.md))
+  - Diseño en SVG (A4) con marcadores `{{campo}}`, hecho fuera, por ejemplo con Claude.
+  - Al subirlo se sanea, se detectan los campos y se configura cada uno (de la formación o del asistente, obligatorio, público).
+  - PDF vectorial en el servidor, sin navegador, con las fuentes incrustadas y el QR de verificación.
+  - Versionado: una versión usada en certificados no cambia nunca (triggers en PostgreSQL).
 - Panel de administración tras Cloudflare Access: formaciones, emisión individual y por CSV, revocación.
 - Página pública del certificado con QR, PDF, JSON firmado y «Añadir a LinkedIn».
-- Plantillas de diploma en SVG con campos personalizables.
 
 Sin cuentas de usuario ni registro: solo se puede emitir desde el panel protegido.
 El admin vive en otro host, tras Cloudflare Access, y la app valida el token de
@@ -73,6 +77,7 @@ un fichero `.env.docker` (no se sube al repo).
 npm run lint
 npm run typecheck
 npm test                      # con DATABASE_URL, también los de integración
+                              # con Poppler (pdftotext, pdftoppm), también los que leen el PDF y su QR
 npm run check-contexts        # compara los contextos empaquetados con los publicados
 npm run sample-credential     # imprime una credencial de ejemplo firmada
 ```

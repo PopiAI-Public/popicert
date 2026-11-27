@@ -1,5 +1,6 @@
 import type { Metadata } from "next";
 import { headers } from "next/headers";
+import Link from "next/link";
 import { notFound } from "next/navigation";
 import { authenticateAdmin } from "@/lib/security/access";
 
@@ -16,10 +17,17 @@ export default async function AdminPage() {
   if (!auth.ok) notFound();
 
   return (
-    <main style={{ maxWidth: 720, margin: "0 auto", padding: "48px 16px", lineHeight: 1.5 }}>
+    <>
       <h1>Admin de PopiCert</h1>
       <p>Has entrado como {auth.email}.</p>
-      <p>Aquí estarán las formaciones, la emisión y la revocación de certificados.</p>
-    </main>
+      <div className="card">
+        <h2 style={{ marginTop: 0 }}>Plantillas de diploma</h2>
+        <p className="muted">Sube diseños SVG, configura sus campos y comprueba el PDF.</p>
+        <Link className="button" href="/admin/plantillas">
+          Ver plantillas
+        </Link>
+      </div>
+      <p className="muted">Aquí estarán también las formaciones, la emisión y la revocación de certificados.</p>
+    </>
   );
 }

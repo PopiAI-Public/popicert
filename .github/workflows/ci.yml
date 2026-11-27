@@ -40,6 +40,8 @@ jobs:
         with:
           node-version: 22
           cache: npm
+      - name: Poppler, para leer los PDF de los tests (texto y QR)
+        run: sudo apt-get update && sudo apt-get install -y --no-install-recommends poppler-utils
       - run: npm ci
       - run: npm run lint
       - run: npm run typecheck
