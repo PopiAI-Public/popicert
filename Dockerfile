@@ -2,7 +2,7 @@
 # Imagen de PopiCert: un solo contenedor HTTP en el puerto 3000.
 # Al arrancar aplica las migraciones pendientes y después sirve la app.
 
-FROM node:22-alpine AS base
+FROM node:26-alpine AS base
 # OpenSSL lo necesita el motor de migraciones de Prisma.
 RUN apk add --no-cache openssl
 WORKDIR /app
