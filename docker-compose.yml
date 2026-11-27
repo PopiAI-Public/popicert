@@ -33,7 +33,8 @@ services:
     environment:
       DATABASE_URL: postgresql://popicert:popicert@db:5432/popicert
       PUBLIC_URL: http://localhost:3100
-      ADMIN_HOST: localhost
+      # El admin necesita Cloudflare Access (CF_ACCESS_*): sin él responde 403.
+      ADMIN_HOST: admin.localhost:3100
     # Opcional: aquí puedes poner POPICERT_SIGNING_KEY (generada con `npm run keygen`).
     env_file:
       - path: .env.docker
