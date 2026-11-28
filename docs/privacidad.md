@@ -52,6 +52,16 @@ Acceso, rectificación, supresión, oposición y limitación en info@popiai.es.
   base de datos. Las credenciales que el titular ya tenga descargadas no se
   pueden borrar, porque están en su poder, pero se pueden revocar.
 
+  > **Por decidir antes de la primera emisión real.** Hoy la base de datos no
+  > deja borrar el nombre, el email ni los campos privados (DNI) de un
+  > certificado emitido: lo impide el trigger que protege lo emitido, para que
+  > su PDF salga siempre igual. Y el registro de auditoría guarda el nombre.
+  > Opciones: (a) permitir, solo en certificados ocultos, vaciar el email y los
+  > campos privados, dejándolo auditado (el PDF completo dejaría de poder
+  > generarse); o (b) documentar que se conservan por obligación legal durante
+  > el plazo que se fije, y solo se ocultan. Es más fácil cambiarlo ahora, sin
+  > datos reales.
+
 ## Responsable
 
 PopiAI, info@popiai.es. [Datos completos del responsable: razón social, NIF,

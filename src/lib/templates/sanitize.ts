@@ -114,6 +114,7 @@ export function sanitizeSvg(source: string): SanitizedSvg {
 
   sanitizeChildren(root, note);
   sanitizeAttributes(root, note);
+  checkExpandedSize(root);
   // El parser da por hecho el espacio de nombres SVG; el navegador no, así que se escribe siempre.
   if (!root.getAttribute("xmlns")) root.setAttribute("xmlns", SVG_NS);
 
@@ -208,6 +209,62 @@ function sanitizeAttributes(element: Element, note: (what: string) => void): voi
       remove(`atributo ${attrName} con url() externas`);
     }
   }
+}
+
+/**
+ * Elementos que habría que dibujar como mucho, contando lo que multiplican
+ * <use> y las referencias url(#…) (patrones, máscaras, recortes…). Un diseño
+ * real no llega a mil. Sin este límite, unos pocos <use> anidados («bomba de
+ * <use>») hacen que un SVG de 1 KB tarde minutos en pasar a PDF, con el
+ * servidor entero bloqueado mientras tanto.
+ */
+export const MAX_EXPANDED_ELEMENTS = 5_000;
+
+const URL_REF = /url\(\s*['"]?#([^'")\s]+)['"]?\s*\)/g;
+
+function references(element: Element): string[] {
+  const refs: string[] = [];
+  const href = hrefOf(element)?.trim();
+  if (href?.startsWith("#")) refs.push(href.slice(1));
+  for (const attr of attributes(element)) {
+    for (const match of attr.value.matchAll(URL_REF)) refs.push(match[1]!);
+  }
+  return refs;
+}
+
+function checkExpandedSize(root: Element): void {
+  const byId = new Map<string, Element>();
+  for (const el of descendants(root)) {
+    const id = el.getAttribute("id");
+    if (id && !byId.has(id)) byId.set(id, el);
+  }
+  const memo = new Map<Element, number>();
+  const visiting = new Set<Element>();
+  const tooBig = () =>
+    new TemplateError(
+      `El SVG es demasiado complejo: al expandir los <use> y las referencias saldrían más de ${MAX_EXPANDED_ELEMENTS.toLocaleString("es-ES")} elementos. Simplifica el diseño o convierte los elementos repetidos en trazados.`,
+    );
+
+  const cost = (element: Element): number => {
+    const known = memo.get(element);
+    if (known !== undefined) return known;
+    if (visiting.has(element)) throw new TemplateError("El SVG tiene una referencia circular (un <use> o url(#…) que acaba apuntándose a sí mismo).");
+    visiting.add(element);
+    let total = 1;
+    for (const child of elementChildren(element)) {
+      total += cost(child);
+      if (total > MAX_EXPANDED_ELEMENTS) throw tooBig();
+    }
+    for (const id of references(element)) {
+      const target = byId.get(id);
+      if (target) total += cost(target);
+      if (total > MAX_EXPANDED_ELEMENTS) throw tooBig();
+    }
+    visiting.delete(element);
+    memo.set(element, total);
+    return total;
+  };
+  cost(root);
 }
 
 /** CSS sin nada que cargue recursos de fuera ni trucos de escape. */

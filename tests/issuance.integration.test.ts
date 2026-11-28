@@ -331,6 +331,36 @@ describe.skipIf(!url)("formaciones y emisión de certificados", async () => {
       expect(log.map((e) => e.action)).toEqual(["certificate.revoke", "certificate.issue"]);
     });
 
+    it("la base de datos tampoco deja deshacer la revocación en la lista de estado", async () => {
+      const created = await training();
+      const { certificate } = await certs.issueCertificate(ctx(), created.id, { values: { nombre: "Ana López" } });
+      await certs.revokeCertificate(ctx(), certificate.id, "Error");
+      const { statusEntry } = await prisma.credential.findUniqueOrThrow({ where: { id: certificate.id }, select: { statusEntry: true } });
+      await expect(prisma.statusEntry.update({ where: { id: statusEntry.id }, data: { revokedAt: null } })).rejects.toThrow(/no se deshace/);
+      await expect(prisma.statusEntry.update({ where: { id: statusEntry.id }, data: { index: statusEntry.index + 1 } })).rejects.toThrow(/no cambia/);
+      await expect(prisma.$executeRawUnsafe(`DELETE FROM status_entry WHERE id = '${statusEntry.id}'`)).rejects.toThrow(/no se borra/);
+      await expect(prisma.$executeRawUnsafe("DELETE FROM status_list")).rejects.toThrow(/no se borra/);
+      await expect(prisma.statusList.update({ where: { id: statusEntry.listId }, data: { version: 1 } })).rejects.toThrow(/solo sube/);
+    });
+
+    it("si alguien borra el bit en status_entry saltándose el trigger, la siguiente revocación lo vuelve a publicar", async () => {
+      const created = await training();
+      const a = (await certs.issueCertificate(ctx(), created.id, { values: { nombre: "Ana" } })).certificate;
+      const b = (await certs.issueCertificate(ctx(), created.id, { values: { nombre: "Luis" } })).certificate;
+      await certs.revokeCertificate(ctx(), a.id, "Error");
+      // Quien es dueño de las tablas puede desactivar el trigger: lo simulamos.
+      await prisma.$executeRawUnsafe("ALTER TABLE status_entry DISABLE TRIGGER status_entry_guard");
+      try {
+        await prisma.$executeRawUnsafe(`UPDATE status_entry SET revoked_at = NULL, revocation_reason = NULL WHERE id = (SELECT status_entry_id FROM credential WHERE id = '${a.id}')`);
+      } finally {
+        await prisma.$executeRawUnsafe("ALTER TABLE status_entry ENABLE TRIGGER status_entry_guard");
+      }
+      await certs.revokeCertificate(ctx(), b.id, "Otro");
+      // La lista publicada sigue dando por revocada a A: sale también de credential.revoked_at.
+      const report = await verify((await certs.getCertificate(prisma, a.id)).credential);
+      expect(report.checks.status.outcome).toBe("failed");
+    });
+
     it("oculta y vuelve a mostrar un certificado, con motivo", async () => {
       const created = await training();
       const { certificate } = await certs.issueCertificate(ctx(), created.id, { values: { nombre: "Ana López" } });

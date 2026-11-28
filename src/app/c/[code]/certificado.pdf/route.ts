@@ -17,7 +17,9 @@ export async function GET(_request: Request, { params }: { params: Promise<{ cod
     headers: {
       "Content-Type": "application/pdf",
       "Content-Disposition": `inline; filename="certificado-${rendered.code}.pdf"`,
-      "Cache-Control": "public, max-age=300",
+      // Privado: si el titular pide ocultarlo, no puede quedar una copia en la caché de Cloudflare.
+      "Cache-Control": "private, no-cache",
+      "X-Robots-Tag": "noindex, nofollow",
       "X-Content-Type-Options": "nosniff",
     },
   });

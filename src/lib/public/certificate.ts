@@ -14,6 +14,7 @@ import { createStatusAwareDocumentLoader } from "@/lib/status/repository";
 import { createStatusChecker } from "@/lib/status/status-list";
 import { renderPdf } from "@/lib/templates/render";
 import { getTemplateVersion } from "@/lib/templates/repository";
+import { createLru, createSemaphore } from "./limits";
 
 export interface PublicField {
   label: string;
@@ -99,10 +100,17 @@ export async function getPublicCertificate(prisma: PrismaClient, code: string): 
   return toVisible(certificate);
 }
 
-/** Verifica una credencial como lo haría un verificador externo, con la lista de estado de la base de datos. */
+const verifySlots = createSemaphore(4);
+
+/**
+ * Verifica una credencial como lo haría un verificador externo, con la lista de
+ * estado de la base de datos. Como mucho cuatro a la vez (canonicalización RDF y firma).
+ */
 export function verifyWithStatus(prisma: PrismaClient, issuer: IssuerContext, credential: unknown, now?: Date): Promise<VerificationReport> {
   const loader = createStatusAwareDocumentLoader(prisma, issuer);
-  return verifyCredential({ credential, documentLoader: loader, expectedIssuer: issuer.did, checkStatus: createStatusChecker(loader), now });
+  return verifySlots(() =>
+    verifyCredential({ credential, documentLoader: loader, expectedIssuer: issuer.did, checkStatus: createStatusChecker(loader), now }),
+  );
 }
 
 /**
@@ -114,6 +122,20 @@ export function verifyWithStatus(prisma: PrismaClient, issuer: IssuerContext, cr
 export async function renderPublicPdf(prisma: PrismaClient, id: string, issuerName: string): Promise<{ pdf: Buffer; code: string } | null> {
   const certificate = await getCertificate(prisma, id);
   if (certificate.hiddenAt) return null;
+  // El PDF de un certificado sale siempre igual (misma versión de plantilla,
+  // mismos datos, misma fecha): se guarda el último centenar ya generado.
+  const cached = pdfCache.get(certificate.id);
+  if (cached) return { pdf: cached, code: certificate.code };
+  const pdf = await pdfSlots(() => buildPublicPdf(prisma, certificate, issuerName));
+  pdfCache.set(certificate.id, pdf);
+  return { pdf, code: certificate.code };
+}
+
+const pdfCache = createLru<Buffer>(100);
+/** Como mucho dos PDF generándose a la vez: es lo que más CPU gasta de la parte pública. */
+const pdfSlots = createSemaphore(2);
+
+async function buildPublicPdf(prisma: PrismaClient, certificate: CertificateDetail, issuerName: string): Promise<Buffer> {
   const version = await getTemplateVersion(prisma, certificate.templateVersionId);
   const values = { ...certificate.trainingValues, ...certificate.attendeeValues };
   for (const field of version.fields) if (!field.public) values[field.key] = "";
@@ -136,7 +158,7 @@ export async function renderPublicPdf(prisma: PrismaClient, id: string, issuerNa
       },
     ],
   });
-  return { pdf, code: certificate.code };
+  return pdf;
 }
 
 /**

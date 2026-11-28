@@ -59,6 +59,14 @@ export async function proxy(request: NextRequest): Promise<NextResponse> {
       ? NextResponse.rewrite(new URL(`/c/${code}/credencial.json`, request.url))
       : NextResponse.next();
     response.headers.set("Vary", "Accept");
+    response.headers.set("X-Robots-Tag", "noindex, nofollow");
+    return response;
+  }
+
+  // La imagen de la vista previa y las descargas de /c/ tampoco se indexan ni se guardan en cachés compartidas.
+  if (isCertificatePath(pathname)) {
+    const response = NextResponse.next();
+    response.headers.set("X-Robots-Tag", "noindex, nofollow");
     return response;
   }
 

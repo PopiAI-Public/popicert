@@ -123,3 +123,32 @@ describe("saneado de plantillas SVG", () => {
     expect(twice.removed).toEqual([]);
   });
 });
+
+describe("bomba de <use>", () => {
+  const svg = (body: string) => `<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 297 210">${body}</svg>`;
+  function bomb(levels: number, fan = 10) {
+    let defs = '<rect id="l0" width="1" height="1"/>';
+    for (let i = 1; i <= levels; i++) defs += `<g id="l${i}">${Array.from({ length: fan }, () => `<use href="#l${i - 1}"/>`).join("")}</g>`;
+    return svg(`<defs>${defs}</defs><use href="#l${levels}"/>`);
+  }
+
+  it("rechaza en el acto un SVG pequeño que se expande a miles de elementos", () => {
+    const started = Date.now();
+    expect(() => sanitizeSvg(bomb(7))).toThrow(/demasiado complejo/);
+    expect(Date.now() - started).toBeLessThan(500);
+    // También con patrones referenciados por url(#…).
+    const fills = Array.from({ length: 80 }, () => '<rect width="1" height="1" fill="url(#p)"/>').join("");
+    const pattern = `<pattern id="p">${Array.from({ length: 100 }, () => '<rect width="1" height="1"/>').join("")}</pattern>`;
+    expect(() => sanitizeSvg(svg(`<defs>${pattern}</defs>${fills}`))).toThrow(/demasiado complejo/);
+  });
+
+  it("rechaza las referencias circulares", () => {
+    expect(() => sanitizeSvg(svg('<g id="a"><use href="#b"/></g><g id="b"><use href="#a"/></g>'))).toThrow(/circular/);
+    expect(() => sanitizeSvg(svg('<g id="a"><use href="#a"/></g>'))).toThrow(/circular/);
+  });
+
+  it("deja pasar los <use> normales y la plantilla de ejemplo", () => {
+    expect(() => sanitizeSvg(bomb(3))).not.toThrow();
+    expect(() => sanitizeSvg(exampleSvg())).not.toThrow();
+  });
+});

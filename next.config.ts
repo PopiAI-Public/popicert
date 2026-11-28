@@ -34,6 +34,9 @@ const securityHeaders = [
 
 const nextConfig: NextConfig = {
   poweredByHeader: false,
+  // No se usa next/image: sin esto, /_next/image sería un endpoint público que
+  // gasta CPU redimensionando imágenes sin límite de peticiones.
+  images: { unoptimized: true },
   // Las librerías de firma de Digital Bazaar y el driver de PostgreSQL se cargan
   // tal cual desde node_modules en el servidor, sin empaquetar.
   serverExternalPackages: [

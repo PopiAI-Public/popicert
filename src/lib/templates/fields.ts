@@ -19,6 +19,12 @@ export const QR_ELEMENT_ID = "qr";
 export const MAX_VALUE_LENGTH = 200;
 
 export type ReservedField = (typeof RESERVED_FIELDS)[number];
+
+/**
+ * Campos de documentos de identidad: nunca pueden ser públicos. Un campo
+ * público entra en la credencial firmada, y de ahí ya no se puede quitar.
+ */
+export const NEVER_PUBLIC_FIELDS = ["dni", "nie", "nif", "pasaporte", "documento", "telefono", "email", "correo"] as const;
 export type FieldScope = "training" | "attendee";
 
 export const fieldConfigSchema = z.object({
@@ -135,6 +141,12 @@ export function validateFieldConfig(detected: readonly string[], input: unknown)
   if (missing.length || extra.length) {
     throw new TemplateError(
       `La configuración no coincide con los campos de la plantilla${missing.length ? `; faltan: ${missing.join(", ")}` : ""}${extra.length ? `; sobran: ${extra.join(", ")}` : ""}.`,
+    );
+  }
+  const exposed = config.filter((f) => f.public && (NEVER_PUBLIC_FIELDS as readonly string[]).includes(f.key));
+  if (exposed.length) {
+    throw new TemplateError(
+      `${exposed.map((f) => `«${f.label}»`).join(", ")} no puede ser público: iría firmado en la credencial y en la página del certificado. Déjalo solo en el PDF.`,
     );
   }
   return detected.map((key) => config.find((f) => f.key === key)!);

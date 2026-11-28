@@ -61,8 +61,16 @@ describe.skipIf(!url)("API de plantillas del admin", async () => {
       body,
       headers: {
         host: ADMIN_HOST,
+        // Como el navegador desde el propio admin (protección CSRF).
+        origin: `https://${ADMIN_HOST}`,
+        "sec-fetch-site": "same-origin",
         ...(token ? { "cf-access-jwt-assertion": token } : {}),
-        ...(body ? { "content-type": draft.headers.get("content-type")!, "content-length": String(body.byteLength) } : {}),
+        ...(body
+          ? {
+              "content-type": typeof init.body === "string" ? "application/json" : draft.headers.get("content-type")!,
+              "content-length": String(body.byteLength),
+            }
+          : {}),
         ...init.headers,
       },
     });

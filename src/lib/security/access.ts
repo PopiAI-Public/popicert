@@ -133,11 +133,36 @@ export function forbidden(): Response {
   return Response.json({ error: "forbidden" }, { status: 403, headers: { "Cache-Control": "no-store" } });
 }
 
-/** Envuelve un handler del admin: comprueba la autenticación antes de ejecutarlo. */
+const SAFE_METHODS = new Set(["GET", "HEAD"]);
+
+/**
+ * Protección contra CSRF en las peticiones que escriben. La cookie de Cloudflare
+ * Access viaja en cualquier petición al host del admin, también en las que lanza
+ * otra web abierta en el mismo navegador (un `fetch` con `mode: "no-cors"` y un
+ * cuerpo `text/plain` no necesita preflight). Así que, además del JWT, la
+ * petición tiene que venir del propio admin: `Sec-Fetch-Site: same-origin` si el
+ * navegador lo manda, y `Origin` igual al host del admin. Sin ninguna de las
+ * dos cabeceras, se rechaza: el admin solo se usa desde el navegador.
+ */
+export function isSameOriginWrite(request: Request): boolean {
+  if (SAFE_METHODS.has(request.method.toUpperCase())) return true;
+  const fetchSite = request.headers.get("sec-fetch-site");
+  if (fetchSite !== null && fetchSite !== "same-origin") return false;
+  const origin = request.headers.get("origin");
+  if (origin === null || origin === "null") return false;
+  try {
+    return new URL(origin).host.toLowerCase() === requestHost(request.headers) && isAdminHost(new URL(origin).host.toLowerCase());
+  } catch {
+    return false;
+  }
+}
+
+/** Envuelve un handler del admin: comprueba la autenticación y el origen antes de ejecutarlo. */
 export function adminHandler<C>(
   handler: (request: Request, context: C, admin: { email: string }) => Promise<Response>,
 ): (request: Request, context: C) => Promise<Response> {
   return async (request, context) => {
+    if (!isSameOriginWrite(request)) return forbidden();
     let admin: { email: string };
     try {
       admin = await requireAdmin(request);

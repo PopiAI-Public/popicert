@@ -3,7 +3,8 @@ import { getPublicCertificate } from "@/lib/public/certificate";
 
 export const dynamic = "force-dynamic";
 
-const HEADERS = { "Access-Control-Allow-Origin": "*", "Cache-Control": "public, max-age=60", Vary: "Accept" };
+// Privado y sin indexar: al ocultar el certificado no debe quedar copia en ninguna caché.
+const HEADERS = { "Access-Control-Allow-Origin": "*", "Cache-Control": "private, no-cache", "X-Robots-Tag": "noindex, nofollow", Vary: "Accept" };
 
 /**
  * La credencial firmada, tal cual se emitió. También responde en /c/<código>
