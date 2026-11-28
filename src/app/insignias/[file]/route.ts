@@ -1,3 +1,4 @@
+import { createHash } from "node:crypto";
 import { getPrisma } from "@/lib/db";
 import { getBadgeImage } from "@/lib/issuance/achievements";
 
@@ -11,7 +12,8 @@ export const dynamic = "force-dynamic";
 export async function GET(_request: Request, { params }: { params: Promise<{ file: string }> }): Promise<Response> {
   const match = /^([0-9a-f]{64})\.(png|jpg)$/.exec((await params).file);
   const image = match ? await getBadgeImage(getPrisma(), match[1]!) : null;
-  if (!image || (match![2] === "png") !== (image.mimeType === "image/png")) {
+  // La URL promete un contenido concreto: si la base de datos no lo tiene tal cual, no se sirve otro.
+  if (!image || (match![2] === "png") !== (image.mimeType === "image/png") || createHash("sha256").update(image.data).digest("hex") !== match![1]) {
     return Response.json({ error: "not_found" }, { status: 404 });
   }
   return new Response(new Uint8Array(image.data), {

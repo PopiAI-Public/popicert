@@ -33,6 +33,9 @@ export async function handle(run: () => Promise<Response>): Promise<Response> {
 }
 
 export async function readJson(request: Request): Promise<Record<string, unknown>> {
+  // Solo JSON de verdad: un `text/plain` lo puede mandar otra web sin preflight.
+  const type = (request.headers.get("content-type") ?? "").split(";")[0]!.trim().toLowerCase();
+  if (type !== "application/json") throw new IssuanceError("El cuerpo tiene que ser JSON (Content-Type: application/json).");
   const body: unknown = await request.json().catch(() => {
     throw new IssuanceError("El cuerpo tiene que ser JSON.");
   });

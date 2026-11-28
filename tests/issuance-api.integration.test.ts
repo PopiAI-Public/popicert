@@ -72,7 +72,7 @@ describe.skipIf(!url)("API de formaciones y certificados del admin", async () =>
 
   async function request(
     path: string,
-    init: { method?: string; body?: BodyInit; json?: unknown; token?: string | null; host?: string } = {},
+    init: { method?: string; body?: BodyInit; json?: unknown; token?: string | null; host?: string; headers?: Record<string, string> } = {},
   ): Promise<NextRequest> {
     const token = init.token === undefined ? await team.sign() : init.token;
     const host = init.host ?? ADMIN_HOST;
@@ -84,10 +84,14 @@ describe.skipIf(!url)("API de formaciones y certificados del admin", async () =>
       body: body && body.byteLength ? body : undefined,
       headers: {
         host,
+        // Como el navegador desde el propio admin (protección CSRF).
+        origin: `https://${host}`,
+        "sec-fetch-site": "same-origin",
         ...(token ? { "cf-access-jwt-assertion": token } : {}),
         ...(body && body.byteLength
           ? { "content-type": init.json !== undefined ? "application/json" : draft.headers.get("content-type")!, "content-length": String(body.byteLength) }
           : {}),
+        ...init.headers,
       },
     });
   }
@@ -251,6 +255,32 @@ describe.skipIf(!url)("API de formaciones y certificados del admin", async () =>
         expect(response.status, name).toBe(403);
       }
       expect(await prisma.auditLog.count()).toBe(0);
+    });
+
+    it("CSRF: una web de fuera no puede escribir aunque el navegador mande la cookie de Access", async () => {
+      const id = await setup();
+      const path = `/api/admin/formaciones/${id}/certificados`;
+      const attempts: [string, Record<string, string>][] = [
+        ["desde otra web", { origin: "https://evil.example", "sec-fetch-site": "cross-site" }],
+        ["desde otro subdominio del mismo sitio", { origin: "https://otro.luismi.dev", "sec-fetch-site": "same-site" }],
+        ["con Origin falseado pero Sec-Fetch-Site delator", { "sec-fetch-site": "cross-site" }],
+        ["sin Origin", { origin: "", "sec-fetch-site": "" }],
+        ["con Origin null (iframe con sandbox)", { origin: "null", "sec-fetch-site": "cross-site" }],
+      ];
+      for (const [label, headers] of attempts) {
+        const req = await request(path, { json: { values: { nombre: "Atacante" } }, headers });
+        // Las cabeceras vacías son «no enviadas».
+        for (const [k, v] of Object.entries(headers)) if (v === "") req.headers.delete(k);
+        expect((await routes.issue.POST(req, params({ id }))).status, label).toBe(403);
+      }
+      // Un formulario o fetch sin preflight solo puede mandar text/plain: tampoco sirve.
+      const plain = await request(path, { body: JSON.stringify({ values: { nombre: "Atacante" } }) });
+      expect((await routes.issue.POST(plain, params({ id }))).status).toBe(422);
+      expect(await prisma.credential.count()).toBe(0);
+      // Leer sí se puede sin Origin (navegación normal y descargas).
+      const read = await request(`/api/admin/formaciones/${id}`, { headers: { origin: "" } });
+      read.headers.delete("origin");
+      expect((await routes.achievement.GET(read, params({ id }))).status).toBe(200);
     });
 
     it("en el host público, el admin no existe (404) aunque traiga un JWT válido", async () => {

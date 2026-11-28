@@ -140,8 +140,10 @@ export async function revokeStatusEntryInTransaction(
     data: { revokedAt, revocationReason: reason },
   });
 
+  // Revocadas según la lista o según su certificado: si alguien tocara una de
+  // las dos copias en la base de datos, el bit sigue publicándose a 1.
   const revoked = await tx.statusEntry.findMany({
-    where: { listId: entry.listId, revokedAt: { not: null } },
+    where: { listId: entry.listId, OR: [{ revokedAt: { not: null } }, { credential: { revokedAt: { not: null } } }] },
     select: { index: true },
   });
   const list = await tx.statusList.findUniqueOrThrow({ where: { id: entry.listId }, select: { size: true } });

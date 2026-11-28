@@ -89,3 +89,13 @@ describe("campos de la plantilla", () => {
     expect(() => resolveFieldValues(fields, { nombre: "x".repeat(201) }, reserved)).toThrow(/más de 200/);
   });
 });
+
+describe("campos que nunca pueden ser públicos", () => {
+  it("rechaza marcar el DNI (o similares) como público", () => {
+    const config = ["nombre", "dni"].map((key) => ({ ...defaultFieldConfig(key) }));
+    expect(() => validateFieldConfig(["nombre", "dni"], config)).not.toThrow();
+    expect(() => validateFieldConfig(["nombre", "dni"], config.map((f) => (f.key === "dni" ? { ...f, public: true } : f)))).toThrow(
+      /«DNI» no puede ser público/,
+    );
+  });
+});

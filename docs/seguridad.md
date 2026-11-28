@@ -35,6 +35,21 @@ que el proxy de Cloudflare esté delante:
 Sin token válido, 403, aunque la petición llegue por la red interna. Si Access
 no está configurado, **nadie** entra.
 
+### 3 bis. CSRF: las escrituras tienen que venir del propio admin
+
+La cookie de Cloudflare Access viaja en cualquier petición al host del admin,
+también en las que lanza otra web abierta en el mismo navegador (un `fetch`
+con `mode: "no-cors"` y cuerpo `text/plain` no necesita preflight). Por eso
+`adminHandler`, en todo lo que no sea `GET` o `HEAD`, exige además:
+
+- `Sec-Fetch-Site: same-origin` si el navegador lo manda;
+- `Origin` igual al host del admin (y sin ninguna de las dos, 403);
+- y los cuerpos JSON con `Content-Type: application/json`, que no se puede
+  mandar sin preflight.
+
+Hay un test por cada forma de intentarlo (otra web, otro subdominio de
+`luismi.dev`, `Origin: null`, sin `Origin`, `text/plain`).
+
 ### 4. Segunda comprobación en cada handler
 
 El proxy no es la única barrera. Cada handler de `/api/admin` va envuelto en
@@ -84,6 +99,10 @@ leer ficheros del disco. Por eso:
 - La vista previa SVG se sirve con `Content-Security-Policy: default-src 'none';
   sandbox`, por si alguien la abre directamente.
 - Límites de tamaño: 10 MB por subida, 5 MB el SVG, 12 fuentes.
+- Límite de **complejidad**: al expandir los `<use>` y las referencias
+  `url(#…)`, como mucho 5.000 elementos, y sin referencias circulares. Sin
+  él, un SVG de 1 KB con `<use>` anidados («bomba de `<use>`») tardaba
+  minutos en pasar a PDF con el servidor entero bloqueado.
 - Una versión usada en certificados no se puede modificar ni borrar: lo impiden
   triggers de PostgreSQL, no solo la aplicación.
 
@@ -109,6 +128,29 @@ admin de formaciones y certificados sin JWT, con un JWT caducado, con otra
 audiencia y con un email no permitido, y comprueba que todos dan 403 y que no
 se escribe nada.
 
+### 8 bis. La revocación, también en la base de datos
+
+- La revocación que se publica sale de `status_entry`. Un trigger impide
+  cambiar la lista o la posición de una entrada, deshacer una revocación y
+  borrar una entrada revocada; otro, borrar una lista publicada o bajar su
+  versión.
+- Al volver a firmar una lista, los bits revocados son la **unión** de
+  `status_entry` y `credential.revoked_at`: aunque alguien tocara una de las
+  dos copias, el certificado sigue publicado como revocado.
+- Los triggers no protegen de quien es **dueño** de las tablas (puede
+  desactivarlos). En producción conviene separar los usuarios: las migraciones
+  con `MIGRATION_DATABASE_URL` (dueño) y la app con `DATABASE_URL`, un usuario
+  que solo lee y escribe filas:
+
+  ```sql
+  CREATE ROLE popicert_app LOGIN PASSWORD '…';
+  GRANT CONNECT ON DATABASE popicert TO popicert_app;
+  GRANT USAGE ON SCHEMA public TO popicert_app;
+  GRANT SELECT, INSERT, UPDATE, DELETE ON ALL TABLES IN SCHEMA public TO popicert_app;
+  ALTER DEFAULT PRIVILEGES FOR ROLE popicert IN SCHEMA public
+    GRANT SELECT, INSERT, UPDATE, DELETE ON TABLES TO popicert_app;
+  ```
+
 ### 9. Parte pública del certificado
 
 - Todo lo que enseña `/c/<código>` sale de la credencial firmada, así que los
@@ -127,8 +169,18 @@ se escribe nada.
   cuerpo pero no escribe nada. `tests/routes-structure.test.ts` lo tiene en una
   lista explícita y comprueba que no toca la base de datos más que para leer.
   Acepta como mucho 64 KB.
-- Las páginas de certificado llevan `noindex`: se comparten, pero no tienen por
-  qué salir en los buscadores.
+- Las páginas de certificado, el PDF, el JSON y la imagen de vista previa
+  llevan `noindex`: se comparten, pero no tienen por qué salir en los
+  buscadores. El PDF y el JSON van con `Cache-Control: private, no-cache`, para
+  que al ocultar un certificado no quede copia en la caché de Cloudflare.
+- El PDF público se genera como mucho de dos en dos y se guarda en memoria
+  (sale siempre igual); la verificación, de cuatro en cuatro. Aunque alguien
+  se salte el límite por IP, no deja sin CPU al resto de la app.
+- `/_next/image` está desactivado (`images.unoptimized`): no se usa y sería un
+  endpoint público que gasta CPU.
+- Un campo de documento de identidad (`dni`, `nie`, `pasaporte`…) no se puede
+  marcar como público: iría firmado en la credencial sin vuelta atrás.
+- `/insignias/<sha256>` comprueba que lo que sirve tiene ese sha256.
 
 ## Desarrollo en local
 
@@ -139,5 +191,11 @@ comprueba.
 
 ## Pendiente
 
-- [ ] Revisión de seguridad del repo antes de la primera emisión real (KAN-15).
+- [x] Revisión de seguridad del repo antes de la primera emisión real (KAN-15):
+      hecha el 28 nov 2026; sus hallazgos están corregidos arriba (CSRF, bomba de
+      `<use>`, triggers de la revocación, cachés), salvo la supresión de datos.
+- [ ] Decidir cómo se suprimen los datos personales (ver `docs/privacidad.md`):
+      el trigger de `credential` hoy no deja borrar el email ni el DNI de un
+      certificado, y el registro de auditoría guarda el nombre.
+- [ ] Separar en producción el usuario de las migraciones del de la app (arriba).
 - [ ] Texto de privacidad revisado: borrador en `docs/privacidad.md`.

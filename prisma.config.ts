@@ -15,6 +15,9 @@ export default defineConfig({
   },
   datasource: {
     // `prisma generate` no necesita conexión; `migrate` falla con un error claro si falta.
-    url: process.env.DATABASE_URL,
+    // Las migraciones pueden ir con otro usuario, dueño de las tablas
+    // (MIGRATION_DATABASE_URL), y la app con uno que solo lee y escribe filas:
+    // así la app no puede desactivar los triggers que protegen lo emitido.
+    url: process.env.MIGRATION_DATABASE_URL || process.env.DATABASE_URL,
   },
 });
