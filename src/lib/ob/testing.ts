@@ -31,6 +31,10 @@ export function sampleCredentialInput(ctx: IssuerContext, overrides: Partial<Cre
     },
     recipient: { name: "María José Núñez Peña", email: "Maria.Nunez@example.com", emailSalt: "0123456789abcdef" },
     validFrom: new Date("2026-11-20T09:00:00Z"),
+    fields: [
+      { key: "horas", label: "Horas", value: "8" },
+      { key: "lugar", label: "Lugar", value: "Valencia" },
+    ],
     ...overrides,
   };
 }

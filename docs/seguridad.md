@@ -109,6 +109,27 @@ admin de formaciones y certificados sin JWT, con un JWT caducado, con otra
 audiencia y con un email no permitido, y comprueba que todos dan 403 y que no
 se escribe nada.
 
+### 9. Parte pública del certificado
+
+- Todo lo que enseña `/c/<código>` sale de la credencial firmada, así que los
+  campos privados de la plantilla no pueden aparecer en la página ni en el JSON.
+- El **PDF público** deja en blanco los campos privados (DNI…): el enlace del
+  certificado se comparte, y el DNI no debe ir con él. El PDF completo solo se
+  descarga desde el admin, para entregarlo al asistente.
+- Un certificado oculto responde con un aviso genérico (y 410 en el JSON, 404
+  en el PDF), sin nombre ni formación, también en los metadatos y en la imagen
+  de vista previa.
+- Las URL de la página, el QR y los metadatos salen de `PUBLIC_URL` y de la
+  credencial, nunca de la cabecera `Host`.
+- Límites por IP: 30 peticiones por minuto en `/verificar` y `/api/verificar`,
+  120 en `/c/`.
+- `/api/verificar` es el único `POST` fuera del admin: lleva el JSON en el
+  cuerpo pero no escribe nada. `tests/routes-structure.test.ts` lo tiene en una
+  lista explícita y comprueba que no toca la base de datos más que para leer.
+  Acepta como mucho 64 KB.
+- Las páginas de certificado llevan `noindex`: se comparten, pero no tienen por
+  qué salir en los buscadores.
+
 ## Desarrollo en local
 
 Con `next dev`, `DEV_ADMIN_EMAIL` permite entrar en el admin sin Cloudflare
@@ -119,7 +140,4 @@ comprueba.
 ## Pendiente
 
 - [ ] Revisión de seguridad del repo antes de la primera emisión real (KAN-15).
-- [ ] Que la página pública respete la ocultación y no enseñe los campos
-      privados de la plantilla (KAN-12). En la credencial ya no entran (KAN-11).
-- [ ] Límite de peticiones en la búsqueda pública, cuando exista (KAN-12).
 - [ ] Texto de privacidad revisado: borrador en `docs/privacidad.md`.

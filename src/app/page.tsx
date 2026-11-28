@@ -5,7 +5,7 @@ export default function HomePage() {
       <p>Certificados verificables de las formaciones de PopiAI, emitidos como credenciales Open Badges 3.0.</p>
       <p>
         Si tienes un enlace a un certificado, ábrelo para ver su estado. Cualquiera puede comprobar su
-        autenticidad.
+        autenticidad en la <a href="/verificar">página de verificación</a>.
       </p>
     </main>
   );

@@ -17,14 +17,28 @@ const files = walk(APP_DIR).filter((f) => /\.(ts|tsx)$/.test(f) && !/\.test\.tsx
 const rel = (f: string) => relative(APP_DIR, f).split(sep).join("/");
 const WRITE_EXPORT = /export\s+(?:async\s+)?(?:function|const)\s+(POST|PUT|PATCH|DELETE)\b/;
 
+/**
+ * POST públicos que no escriben: llevan datos en el cuerpo, nada más. Cada uno
+ * tiene que estar justificado aquí y tener límite de peticiones en el proxy.
+ */
+const READ_ONLY_POSTS = new Set(["api/verificar/route.ts"]);
+
 describe("estructura de rutas", () => {
   it("las rutas que escriben (POST/PUT/PATCH/DELETE) solo existen bajo /api/admin", () => {
     const offenders = files
       .filter((f) => /\/route\.ts$/.test(rel(f)) || rel(f) === "route.ts")
       .filter((f) => WRITE_EXPORT.test(readFileSync(f, "utf8")))
       .map(rel)
-      .filter((path) => !path.startsWith("api/admin/"));
+      .filter((path) => !path.startsWith("api/admin/") && !READ_ONLY_POSTS.has(path));
     expect(offenders).toEqual([]);
+  });
+
+  it("los POST públicos de solo lectura no tocan la base de datos más que para leer", () => {
+    for (const path of READ_ONLY_POSTS) {
+      const source = readFileSync(join(APP_DIR, path), "utf8");
+      expect(source, path).not.toMatch(/\.(create|createMany|update|updateMany|upsert|delete|deleteMany)\(|\$executeRaw|\$transaction|\b(issueCertificate|issueCsv|issuePrepared|revokeCertificate|setCertificateHidden|audit)\(/);
+      expect(source, path).not.toMatch(/export\s+(?:async\s+)?(?:function|const)\s+(PUT|PATCH|DELETE)\b/);
+    }
   });
 
   it("todos los handlers de /api/admin pasan por adminHandler", () => {

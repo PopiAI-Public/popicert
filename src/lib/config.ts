@@ -29,6 +29,8 @@ const schema = z.object({
   ISSUER_NAME: z.string().min(1).default("PopiAI"),
   ISSUER_URL: z.url().default("https://popiai.es"),
   ISSUER_EMAIL: z.email().default("info@popiai.es"),
+  /** Organización del emisor en LinkedIn, para «Añadir a LinkedIn». */
+  LINKEDIN_ORGANIZATION_ID: z.string().regex(/^\d+$/).default("109129476"),
 
   /** Equipo de Cloudflare Access: `popiai` o `popiai.cloudflareaccess.com`. */
   CF_ACCESS_TEAM_DOMAIN: z.string().min(1).optional(),
