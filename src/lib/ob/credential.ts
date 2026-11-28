@@ -31,6 +31,27 @@ export interface RecipientInput {
   emailSalt?: string;
 }
 
+/**
+ * Un dato público del diploma (fecha, lugar, horas…). Open Badges 3.0 no tiene
+ * campos libres: se declaran en `achievement.resultDescription` y su valor va
+ * en `credentialSubject.result`, con un tipo de extensión.
+ */
+export interface PublicField {
+  /** Clave del campo en la plantilla: `lugar`. */
+  key: string;
+  /** Nombre legible: «Lugar». */
+  label: string;
+  value: string;
+}
+
+/** Tipo de resultado de los campos de PopiCert (vocabulario ampliable de OB 3.0). */
+export const FIELD_RESULT_TYPE = "ext:PopiCertField";
+
+/** Identificador de la descripción de un campo dentro de una formación. */
+export function fieldResultId(achievementId: string, key: string): string {
+  return `${achievementId}#campo-${key}`;
+}
+
 export interface CredentialInput {
   /** URL pública del certificado, por ejemplo https://certificados.popiai.es/c/ABCD234567 */
   id: string;
@@ -41,6 +62,8 @@ export interface CredentialInput {
   validUntil?: Date;
   /** Entrada de la lista de estado de revocación (KAN-10). */
   credentialStatus?: object;
+  /** Datos públicos del diploma. Los privados (DNI…) nunca van aquí. */
+  fields?: readonly PublicField[];
 }
 
 export type OpenBadgeCredential = Record<string, unknown> & {
@@ -88,6 +111,16 @@ export function buildOpenBadgeCredential(input: CredentialInput): OpenBadgeCrede
     };
   }
 
+  const fields = (input.fields ?? []).filter((f) => f.value.trim() !== "");
+  if (fields.length > 0) {
+    achievementObject.resultDescription = fields.map((f) => ({
+      id: fieldResultId(achievement.id, f.key),
+      type: ["ResultDescription"],
+      name: f.label,
+      resultType: FIELD_RESULT_TYPE,
+    }));
+  }
+
   const issuerObject: Record<string, unknown> & { id: string } = {
     id: issuer.id,
     type: ["Profile"],
@@ -108,6 +141,9 @@ export function buildOpenBadgeCredential(input: CredentialInput): OpenBadgeCrede
       name: recipient.name.trim(),
       identifier,
       achievement: achievementObject,
+      ...(fields.length > 0
+        ? { result: fields.map((f) => ({ type: ["Result"], resultDescription: fieldResultId(achievement.id, f.key), value: f.value.trim() })) }
+        : {}),
     },
     // Sin `credentialSchema`: es opcional en Open Badges 3.0, y el tipo que usan los
     // ejemplos de 1EdTech (`1EdTechJsonSchemaValidator2019`) no está definido en

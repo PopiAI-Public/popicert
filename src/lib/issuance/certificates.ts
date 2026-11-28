@@ -19,13 +19,13 @@ import { z } from "zod";
 import { Prisma, type PrismaClient } from "@/generated/prisma/client";
 import { audit } from "@/lib/audit";
 import { generateCertificateCode, normalizeCertificateCode } from "@/lib/ob/code";
-import { buildOpenBadgeCredential, type OpenBadgeCredential } from "@/lib/ob/credential";
+import { buildOpenBadgeCredential, type OpenBadgeCredential, type PublicField } from "@/lib/ob/credential";
 import { normalizeEmail } from "@/lib/ob/identity";
 import type { IssuerContext } from "@/lib/ob/issuer";
 import { signCredential } from "@/lib/ob/sign";
 import { allocateStatusEntry, revokeStatusEntryInTransaction } from "@/lib/status/repository";
 import { TemplateError } from "@/lib/templates/errors";
-import { normalizeFieldValue } from "@/lib/templates/fields";
+import { normalizeFieldValue, type FieldConfig } from "@/lib/templates/fields";
 import { createTemplateFiller, renderPdf, type FilledTemplate, type FillInput } from "@/lib/templates/render";
 import { getTemplateVersion, isUuid, lockTemplateVersion } from "@/lib/templates/repository";
 import { SAMPLE_CODE } from "@/lib/templates/samples";
@@ -200,6 +200,17 @@ async function findActive(db: Db, achievementId: string, key: string): Promise<C
 
 export type IssueOutcome = { status: "issued" | "existing"; certificate: CertificateSummary };
 
+/**
+ * Los campos públicos de la plantilla, con su valor, para la credencial y la
+ * página pública. El nombre y la formación no se repiten: ya van como nombre del
+ * titular y del logro. Los privados (DNI…) no salen nunca de aquí.
+ */
+export function publicFields(fields: readonly FieldConfig[], values: Readonly<Record<string, string>>): PublicField[] {
+  return fields
+    .filter((f) => f.public && f.key !== NAME_FIELD && f.key !== "formacion" && values[f.key])
+    .map((f) => ({ key: f.key, label: f.label, value: values[f.key]! }));
+}
+
 /** Segundos enteros: es la precisión de `validFrom`, y así la fecha del PDF y la de la credencial coinciden. */
 const wholeSeconds = (date: Date) => new Date(Math.floor(date.getTime() / 1000) * 1000);
 
@@ -233,6 +244,7 @@ export async function issuePrepared(ctx: IssueContext, issuable: Issuable, atten
         recipient: { name: attendee.name, ...(attendee.email ? { email: attendee.email } : {}) },
         validFrom: issuedAt,
         credentialStatus: status.credentialStatus,
+        fields: publicFields(version.fields, { ...issuable.trainingValues, ...attendee.attendeeValues }),
       });
       const signed = await signCredential({ credential: unsigned, keyRing: issuer.keyRing, documentLoader: issuer.documentLoader, date: issuedAt });
 

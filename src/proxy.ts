@@ -1,6 +1,6 @@
 import { NextResponse, type NextRequest } from "next/server";
 import { authenticateAdmin, isAdminHost, requestHost } from "@/lib/security/access";
-import { isAdminPath, isRateLimitedPath, normalizePath } from "@/lib/security/paths";
+import { certificatePageCode, isAdminPath, isCertificatePath, isRateLimitedPath, normalizePath, wantsJson } from "@/lib/security/paths";
 import { clientIp, createRateLimiter } from "@/lib/security/rate-limit";
 
 /**
@@ -9,13 +9,19 @@ import { clientIp, createRateLimiter } from "@/lib/security/rate-limit";
  * - En el host público, el admin **no existe**: /admin y /api/admin dan 404.
  * - En el host de admin, todo exige un JWT válido de Cloudflare Access (403 si
  *   no), y solo se sirve el admin.
- * - En el host público, /verificar tiene límite de peticiones.
+ * - En el host público, /verificar y /c/ tienen límite de peticiones.
+ * - /c/<código> con `Accept: application/ld+json` (o JSON) devuelve la credencial firmada.
  *
  * No es la única barrera: cada handler del admin vuelve a autenticar con
  * `adminHandler`/`requireAdmin`, por si una ruta se escapa del proxy.
  */
 
 const verifyLimiter = createRateLimiter({ limit: 30, windowMs: 60_000 });
+const certificateLimiter = createRateLimiter({ limit: 120, windowMs: 60_000 });
+
+function tooManyRequests(): NextResponse {
+  return NextResponse.json({ error: "too_many_requests" }, { status: 429, headers: { "Retry-After": "60", "Cache-Control": "no-store" } });
+}
 
 function notFound(): NextResponse {
   return NextResponse.json({ error: "not_found" }, { status: 404, headers: { "Cache-Control": "no-store" } });
@@ -42,11 +48,18 @@ export async function proxy(request: NextRequest): Promise<NextResponse> {
 
   if (adminPath) return notFound();
 
-  if (isRateLimitedPath(pathname) && !verifyLimiter.hit(clientIp(request.headers))) {
-    return NextResponse.json(
-      { error: "too_many_requests" },
-      { status: 429, headers: { "Retry-After": "60", "Cache-Control": "no-store" } },
-    );
+  if (isRateLimitedPath(pathname) && !verifyLimiter.hit(clientIp(request.headers))) return tooManyRequests();
+  if (isCertificatePath(pathname) && !certificateLimiter.hit(clientIp(request.headers))) return tooManyRequests();
+
+  // La URL del certificado también es la de su credencial: con Accept JSON, la credencial firmada.
+  const code = certificatePageCode(pathname);
+  if (code) {
+    const json = wantsJson(request.headers.get("accept"));
+    const response = json
+      ? NextResponse.rewrite(new URL(`/c/${code}/credencial.json`, request.url))
+      : NextResponse.next();
+    response.headers.set("Vary", "Accept");
+    return response;
   }
 
   return NextResponse.next();

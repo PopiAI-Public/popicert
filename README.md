@@ -9,7 +9,8 @@ en la propia web o con un verificador externo de Open Badges 3.0.
 
 > **Estado:** en desarrollo. Ya están la base del proyecto, el núcleo de firma y
 > verificación, la revocación, las plantillas de diploma y el panel de
-> administración con la emisión. Falta la página pública del certificado.
+> administración con la emisión y la página pública del certificado. Falta el
+> despliegue en el servidor y el piloto con una formación real.
 
 ## Qué hace (y qué hará)
 
@@ -39,7 +40,14 @@ en la propia web o con un verificador externo de Open Badges 3.0.
   - Búsqueda por nombre o código, revocación con motivo, ocultación a petición del asistente (RGPD)
     y PDF del certificado con la credencial firmada adjunta.
   - Registro de auditoría de cada acción, con el email de Access.
-- Página pública del certificado con QR, PDF, JSON firmado y «Añadir a LinkedIn».
+- **Página pública del certificado** en `/c/<código>` ✅
+  - Estado (válido o revocado, con fecha y motivo), formación, insignia y los campos públicos de la
+    plantilla, sacados de la credencial firmada: la página y el JSON dicen siempre lo mismo.
+  - QR, PDF (sin los campos privados), JSON firmado y «Añadir a LinkedIn».
+  - Negociación de contenido: con `Accept: application/ld+json` la misma URL da la credencial.
+  - Open Graph con imagen generada en el servidor, para la vista previa en LinkedIn o WhatsApp.
+  - `/verificar`: por código o subiendo el JSON, con cada comprobación por separado.
+  - Un certificado oculto a petición del titular solo dice que lo está.
 
 Sin cuentas de usuario ni registro: solo se puede emitir desde el panel protegido.
 El admin vive en otro host, tras Cloudflare Access, y la app valida el token de

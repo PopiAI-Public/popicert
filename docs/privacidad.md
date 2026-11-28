@@ -20,7 +20,7 @@ Para el email de emisión (KAN-14) y la página del certificado:
 | Nombre y apellidos | Página pública, credencial firmada y PDF | Identifica al titular del certificado |
 | Formación, fechas, horas, lugar, ponente | Página pública, credencial y PDF | Es el contenido del certificado |
 | Email (si se recoge) | Solo en la base de datos. En la credencial va con hash y sal, nunca en claro | Enviar el certificado y que el titular pueda demostrar que es suyo |
-| DNI u otros datos sensibles (si la plantilla los pide) | **Solo en el PDF**. Nunca en la página ni en la credencial | Requisito de algunas formaciones bonificadas |
+| DNI u otros datos sensibles (si la plantilla los pide) | **Solo en el PDF que se entrega al asistente**. Nunca en la página, en la credencial ni en el PDF que se descarga desde la página pública | Requisito de algunas formaciones bonificadas |
 | Email del administrador | Registro de auditoría | Saber quién emitió o revocó cada certificado |
 
 PopiCert no usa cookies propias ni analítica en la parte pública. Cloudflare,
